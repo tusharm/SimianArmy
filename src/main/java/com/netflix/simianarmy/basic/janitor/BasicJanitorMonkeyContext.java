@@ -119,7 +119,7 @@ public class BasicJanitorMonkeyContext extends BasicSimianArmyContext implements
         janitorResourceTracker = new SimpleDBJanitorResourceTracker(awsClient(), resourceDomain);
 
         janitorEmailBuilder = new BasicJanitorEmailBuilder();
-        sesClient = new AmazonSimpleEmailServiceClient();
+        sesClient = new AmazonSimpleEmailServiceClient(awsClient().getClientConfiguration());
         defaultEmail = configuration().getStrOrElse("simianarmy.janitor.notification.defaultEmail", "");
         ccEmails = StringUtils.split(
                 configuration().getStrOrElse("simianarmy.janitor.notification.ccEmails", ""), ",");
