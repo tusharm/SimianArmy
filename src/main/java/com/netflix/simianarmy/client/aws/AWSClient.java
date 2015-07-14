@@ -18,6 +18,7 @@
 package com.netflix.simianarmy.client.aws;
 
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.autoscaling.AmazonAutoScalingClient;
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
@@ -88,7 +89,6 @@ import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.domain.LoginCredentials;
-import org.jclouds.ec2.EC2ApiMetadata;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.ssh.SshClient;
 import org.jclouds.ssh.jsch.config.JschSshClientModule;
@@ -116,6 +116,7 @@ public class AWSClient implements CloudClient {
     private final String region;
 
     private final AWSCredentialsProvider awsCredentialsProvider;
+    private final ClientConfiguration clientConfiguration;
 
     private ComputeService jcloudsComputeService;
 
@@ -152,20 +153,23 @@ public class AWSClient implements CloudClient {
      * @see com.netflix.simianarmy.basic.BasicSimianArmyContext#exportCredentials(String, String)
      */
     public AWSClient(String region) {
-        this.region = region;
-        this.awsCredentialsProvider = null;
+        this(region, null);
     }
 
     /**
      * The constructor allows you to provide your own AWS credentials provider.
-     * @param region
-     *          the region
-     * @param awsCredentialsProvider
-     *          the AWS credentials provider
+     *
+     * @param region                 the region
+     * @param awsCredentialsProvider the AWS credentials provider
      */
     public AWSClient(String region, AWSCredentialsProvider awsCredentialsProvider) {
         this.region = region;
         this.awsCredentialsProvider = awsCredentialsProvider;
+        this.clientConfiguration = createConfiguration();
+    }
+
+    public ClientConfiguration getClientConfiguration() {
+        return new ClientConfiguration(clientConfiguration);
     }
 
     /**
@@ -185,9 +189,9 @@ public class AWSClient implements CloudClient {
     protected AmazonEC2 ec2Client() {
         AmazonEC2 client;
         if (awsCredentialsProvider == null) {
-            client = new AmazonEC2Client();
+            client = new AmazonEC2Client(clientConfiguration);
         } else {
-            client = new AmazonEC2Client(awsCredentialsProvider);
+            client = new AmazonEC2Client(awsCredentialsProvider, clientConfiguration);
         }
         client.setEndpoint("ec2." + region + ".amazonaws.com");
         return client;
@@ -201,9 +205,9 @@ public class AWSClient implements CloudClient {
     protected AmazonAutoScalingClient asgClient() {
         AmazonAutoScalingClient client;
         if (awsCredentialsProvider == null) {
-            client = new AmazonAutoScalingClient();
+            client = new AmazonAutoScalingClient(clientConfiguration);
         } else {
-            client = new AmazonAutoScalingClient(awsCredentialsProvider);
+            client = new AmazonAutoScalingClient(awsCredentialsProvider, clientConfiguration);
         }
         client.setEndpoint("autoscaling." + region + ".amazonaws.com");
         return client;
@@ -217,9 +221,9 @@ public class AWSClient implements CloudClient {
     protected AmazonElasticLoadBalancingClient elbClient() {
         AmazonElasticLoadBalancingClient client;
         if (awsCredentialsProvider == null) {
-            client = new AmazonElasticLoadBalancingClient();
+            client = new AmazonElasticLoadBalancingClient(clientConfiguration);
         } else {
-            client = new AmazonElasticLoadBalancingClient(awsCredentialsProvider);
+            client = new AmazonElasticLoadBalancingClient(awsCredentialsProvider, clientConfiguration);
         }
         client.setEndpoint("elasticloadbalancing." + region + ".amazonaws.com");
         return client;
@@ -233,9 +237,9 @@ public class AWSClient implements CloudClient {
     public AmazonSimpleDB sdbClient() {
         AmazonSimpleDB client;
         if (awsCredentialsProvider == null) {
-            client = new AmazonSimpleDBClient();
+            client = new AmazonSimpleDBClient(clientConfiguration);
         } else {
-            client = new AmazonSimpleDBClient(awsCredentialsProvider);
+            client = new AmazonSimpleDBClient(awsCredentialsProvider, clientConfiguration);
         }
         // us-east-1 has special naming
         // http://docs.amazonwebservices.com/general/latest/gr/rande.html#sdb_region
@@ -827,5 +831,18 @@ public class AWSClient implements CloudClient {
     @Override
     public boolean canChangeInstanceSecurityGroups(String instanceId) {
         return null != getVpcId(instanceId);
+    }
+
+    private ClientConfiguration createConfiguration() {
+        ClientConfiguration configuration = new ClientConfiguration();
+        String proxyHost = System.getProperty("http.proxyHost", System.getenv("HTTP_PROXY_HOST"));
+        if (proxyHost != null)
+            configuration.setProxyHost(proxyHost);
+
+        String proxyPort = System.getProperty("http.proxyPort", System.getenv("HTTP_PROXY_PORT"));
+        if (proxyPort != null)
+            configuration.setProxyPort(Integer.valueOf(proxyPort));
+
+        return configuration;
     }
 }
